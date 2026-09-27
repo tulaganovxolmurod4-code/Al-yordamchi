@@ -1,12 +1,12 @@
 import express from 'express';
-import { getOrCreateUser, getOrCreateChat, saveMessage, getRecentMessages, getMemoryEntries } from '../db/db.js';
+import { getOrCreateUser, getOrCreateActiveChat, saveMessage, getMessages, getMemory } from '../db/db.js';
 import { generateReply, detectEmotion } from '../services/aiService.js';
 
 const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { message, chatType } = req.body;
+    const { message, chatId } = req.body;
     const telegramUser = req.telegramUser;
 
     if (!message || typeof message !== 'string') {
@@ -14,12 +14,12 @@ router.post('/', async (req, res) => {
     }
 
     const user = await getOrCreateUser(telegramUser);
-    const chat = await getOrCreateChat(user.id, chatType || 'miniapp');
+    const chat = await getOrCreateActiveChat(user.id, chatId);
 
-    await saveMessage(chat.id, 'user', message);
+    await saveMessage(user.id, chat.id, 'user', message);
 
-    const history = await getRecentMessages(chat.id, 20);
-    const memories = await getMemoryEntries(user.id);
+    const history = await getMessages(user.id, chat.id, 20);
+    const memories = await getMemory(user.id);
 
     const replyText = await generateReply({
       history,
@@ -28,11 +28,11 @@ router.post('/', async (req, res) => {
       userName: telegramUser?.first_name || 'do\'st',
     });
 
-    await saveMessage(chat.id, 'assistant', replyText);
+    await saveMessage(user.id, chat.id, 'assistant', replyText);
 
     const emotion = detectEmotion(replyText);
 
-    res.json({ reply: replyText, emotion });
+    res.json({ reply: replyText, emotion, chatId: chat.id });
   } catch (err) {
     console.error('chat route error:', err);
     res.status(500).json({ error: 'internal_error' });
