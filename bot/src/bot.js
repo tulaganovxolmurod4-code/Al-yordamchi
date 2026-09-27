@@ -1,4 +1,5 @@
 import "dotenv/config";
+import http from "http";
 import { Telegraf, Markup } from "telegraf";
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -62,3 +63,8 @@ console.log("JARVIS bot is running (long polling).");
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+const PORT = process.env.PORT || 3000;
+http
+  .createServer((req, res) => res.end("JARVIS bot is alive"))
+  .listen(PORT, () => console.log(`Keepalive server running on port ${PORT}`));
