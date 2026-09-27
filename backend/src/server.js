@@ -29,12 +29,11 @@ app.use("/api", limiter);
 app.get("/health", (req, res) => res.json({ status: "ok", online: true }));
 
 // Server-to-server route used by the bot process; protected by its own shared secret.
-app.use("/api", botRelayRoutes);
+app.use("/api/bot/relay", botRelayRoutes);
 
 // Every route below requires a valid Telegram WebApp session.
-app.use("/api", telegramAuthMiddleware);
-app.use("/api", chatRoutes);
-app.use("/api", memoryRoutes);
+app.use("/api/chat", telegramAuthMiddleware, chatRoutes);
+app.use("/api/memory", telegramAuthMiddleware, memoryRoutes);
 
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
