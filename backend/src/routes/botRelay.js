@@ -1,5 +1,5 @@
 import express from 'express';
-import { getOrCreateUser, getOrCreateChat, saveMessage, getRecentMessages, getMemoryEntries } from '../db/db.js';
+import { getOrCreateUser, getOrCreateActiveChat, saveMessage, getMessages, getMemory } from '../db/db.js';
 import { generateReply, detectEmotion } from '../services/aiService.js';
 
 const router = express.Router();
@@ -22,12 +22,12 @@ router.post('/', async (req, res) => {
     }
 
     const user = await getOrCreateUser(telegramUser);
-    const chat = await getOrCreateChat(user.id, 'telegram_dm');
+    const chat = await getOrCreateActiveChat(user.id, null);
 
-    await saveMessage(chat.id, 'user', message);
+    await saveMessage(user.id, chat.id, 'user', message);
 
-    const history = await getRecentMessages(chat.id, 20);
-    const memories = await getMemoryEntries(user.id);
+    const history = await getMessages(user.id, chat.id, 20);
+    const memories = await getMemory(user.id);
 
     const replyText = await generateReply({
       history,
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
       userName: telegramUser?.first_name || 'do\'st',
     });
 
-    await saveMessage(chat.id, 'assistant', replyText);
+    await saveMessage(user.id, chat.id, 'assistant', replyText);
 
     const emotion = detectEmotion(replyText);
 
