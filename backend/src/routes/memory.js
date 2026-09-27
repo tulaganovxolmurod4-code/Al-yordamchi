@@ -1,5 +1,5 @@
 import express from 'express';
-import { getOrCreateUser, getMemoryEntries, addMemoryEntry, deleteMemoryEntry } from '../db/db.js';
+import { getOrCreateUser, getMemory, upsertMemory, deleteMemory } from '../db/db.js';
 
 const router = express.Router();
 
@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
   try {
     const telegramUser = req.telegramUser;
     const user = await getOrCreateUser(telegramUser);
-    const memories = await getMemoryEntries(user.id);
+    const memories = await getMemory(user.id);
     res.json({ memories });
   } catch (err) {
     console.error('memory GET error:', err);
@@ -16,21 +16,26 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Add a new memory entry
+// Add or update a memory entry
 router.post('/', async (req, res) => {
   try {
-    const { content } = req.body;
+    const { key, value, category } = req.body;
     const telegramUser = req.telegramUser;
 
-    if (!content || typeof content !== 'string') {
-      return res.status(400).json({ error: 'content is required' });
+    if (!key || !value) {
+      return res.status(400).json({ error: 'key and value are required' });
     }
 
     const user = await getOrCreateUser(telegramUser);
-    const entry = await addMemoryEntry(user.id, content);
 
-    if (!entry) {
-      return res.status(400).json({ error: 'content_blocked' });
+    let entry;
+    try {
+      entry = await upsertMemory(user.id, key, value, category || 'general');
+    } catch (e) {
+      if (e.code === 'FORBIDDEN_MEMORY') {
+        return res.status(400).json({ error: 'content_blocked' });
+      }
+      throw e;
     }
 
     res.json({ memory: entry });
@@ -46,7 +51,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const telegramUser = req.telegramUser;
     const user = await getOrCreateUser(telegramUser);
-    await deleteMemoryEntry(user.id, id);
+    await deleteMemory(user.id, id);
     res.json({ success: true });
   } catch (err) {
     console.error('memory DELETE error:', err);
